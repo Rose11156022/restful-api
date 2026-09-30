@@ -1,0 +1,1590 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "台北市 YouBike 2.0 開放資料 RESTful API 服務",
+    "description": "\n## 台北市 YouBike 2.0 Open Data RESTful API 系統\n\n本系統以台北市政府交通局 YouBike 2.0 即時開放資料為主題，採用 **Python + FastAPI + SQLite** 建構。\n提供針對 YouBike 場站資源（Stations）之完整 **CRUD 操作**、分頁搜尋、經緯度周邊站點半徑查詢（Nearby）、以及行政區統計（Districts & Stats）。\n\n### 主要功能特性：\n* **Create (POST)**: 新增 YouBike 場站資源\n* **Read (GET)**: 查詢場站清單（支援分頁、多條件篩選、關鍵字查詢）及單一站點詳細資訊\n* **Update (PUT / PATCH)**: 提供完整更新 (PUT) 與局部修改 (PATCH)\n* **Delete (DELETE)**: 刪除指定場站\n* **Nearby Search**: 根據給定經緯度查詢半徑範圍內的 YouBike 站點與可借車輛數\n* **Statistics**: 提供全台北市與各行政區（如大安區、信義區）之車位容量與車輛即時統計\n* **API Documentation**: 自動產生符合 OpenAPI 3.0 標準之 Swagger UI 與 ReDoc 互動式文件\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/stations": {
+      "get": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "取得場站分頁列表與多條件搜尋",
+        "description": "查詢 YouBike 2.0 場站清單，支援分頁、關鍵字搜尋（站名/地址/編號）、行政區過濾、營運狀態及最小可借車輛數篩選。",
+        "operationId": "list_stations_api_v1_stations_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "頁碼 (從 1 開始)",
+              "default": 1,
+              "title": "Page"
+            },
+            "description": "頁碼 (從 1 開始)"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "description": "每頁筆數 (預設 20，上限 100)",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "每頁筆數 (預設 20，上限 100)"
+          },
+          {
+            "name": "district",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "行政區名稱過濾 (例: 大安區, 信義區)",
+              "title": "District"
+            },
+            "description": "行政區名稱過濾 (例: 大安區, 信義區)"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "關鍵字搜尋 (模糊搜尋站名、地址或代號)",
+              "title": "Keyword"
+            },
+            "description": "關鍵字搜尋 (模糊搜尋站名、地址或代號)"
+          },
+          {
+            "name": "act",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[01]$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "營運狀態 ('1': 營運中, '0': 暫停營運)",
+              "title": "Act"
+            },
+            "description": "營運狀態 ('1': 營運中, '0': 暫停營運)"
+          },
+          {
+            "name": "min_available",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "篩選至少有多少輛可借單車",
+              "title": "Min Available"
+            },
+            "description": "篩選至少有多少輛可借單車"
+          },
+          {
+            "name": "sort_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(id|sno|total_slots|available_rent_bikes|available_return_bikes)$",
+              "description": "排序欄位",
+              "default": "id",
+              "title": "Sort By"
+            },
+            "description": "排序欄位"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^(asc|desc)$",
+              "description": "排序方向 (asc: 遞增, desc: 遞減)",
+              "default": "asc",
+              "title": "Order"
+            },
+            "description": "排序方向 (asc: 遞增, desc: 遞減)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationPaginationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "新增場站資源 (Create)",
+        "description": "新增一筆 YouBike 場站資料。若未指定場站代號 sno，系統將自動產生唯一代號。",
+        "operationId": "create_station_api_v1_stations_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stations/nearby": {
+      "get": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "經緯度周邊場站查詢 (Nearby)",
+        "description": "給定經緯度座標與半徑 (公尺)，計算並回傳周邊最近的 YouBike 場站資訊與直線距離。",
+        "operationId": "get_nearby_stations_api_v1_stations_nearby_get",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0,
+              "description": "中心點緯度 (例: 25.02605)",
+              "title": "Latitude"
+            },
+            "description": "中心點緯度 (例: 25.02605)"
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0,
+              "description": "中心點經度 (例: 121.54360)",
+              "title": "Longitude"
+            },
+            "description": "中心點經度 (例: 121.54360)"
+          },
+          {
+            "name": "radius",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 10000.0,
+              "minimum": 50.0,
+              "description": "搜尋半徑 (公尺，預設 1000m)",
+              "default": 1000.0,
+              "title": "Radius"
+            },
+            "description": "搜尋半徑 (公尺，預設 1000m)"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "description": "最多回傳筆數 (預設 10)",
+              "default": 10,
+              "title": "Limit"
+            },
+            "description": "最多回傳筆數 (預設 10)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NearbyStationResponse"
+                  },
+                  "title": "Response Get Nearby Stations Api V1 Stations Nearby Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stations/{station_id}": {
+      "get": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "取得單一場站詳細資訊 (Read)",
+        "description": "傳入場站 ID (整數) 或站點代號 sno (字串) 查詢場站詳細內容與即時可用率。",
+        "operationId": "get_station_api_v1_stations__station_id__get",
+        "parameters": [
+          {
+            "name": "station_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "場站內部 ID (數字) 或 站點代號 sno (例: 500101001)",
+              "title": "Station Id"
+            },
+            "description": "場站內部 ID (數字) 或 站點代號 sno (例: 500101001)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "完整更新場站資訊 (Update - PUT)",
+        "description": "完整替換指定的場站資料。若欄位缺失將觸發驗證錯誤。",
+        "operationId": "update_station_api_v1_stations__station_id__put",
+        "parameters": [
+          {
+            "name": "station_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "場站內部 ID 或 sno",
+              "title": "Station Id"
+            },
+            "description": "場站內部 ID 或 sno"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "局部更新場站資訊 (Update - PATCH)",
+        "description": "局部修改場站部分屬性（例如：單獨調整可借車輛數、更新備註或改變營運狀態）。",
+        "operationId": "patch_station_api_v1_stations__station_id__patch",
+        "parameters": [
+          {
+            "name": "station_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "場站內部 ID 或 sno",
+              "title": "Station Id"
+            },
+            "description": "場站內部 ID 或 sno"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StationPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "刪除場站資源 (Delete)",
+        "description": "永久刪除指定之場站資源。",
+        "operationId": "delete_station_api_v1_stations__station_id__delete",
+        "parameters": [
+          {
+            "name": "station_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "場站內部 ID 或 sno",
+              "title": "Station Id"
+            },
+            "description": "場站內部 ID 或 sno"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stations/reset-database": {
+      "post": {
+        "tags": [
+          "YouBike 場站管理 (Stations CRUD)"
+        ],
+        "summary": "重設資料庫為初始 Open Data (資料重置)",
+        "description": "清空現有資料庫並從原始下載的 Open Data JSON 重新匯入，方便測試與重現。",
+        "operationId": "reset_database_api_v1_stations_reset_database_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats/overview": {
+      "get": {
+        "tags": [
+          "統計分析 (Statistics)"
+        ],
+        "summary": "取得全台北市 YouBike 營運總覽統計",
+        "description": "統計全台北市之場站總數、營運中/暫停場站數、車輛與空位總容量及涵蓋行政區數量。",
+        "operationId": "get_overview_api_v1_stats_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OverviewStats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/districts": {
+      "get": {
+        "tags": [
+          "行政區統計 (Districts)"
+        ],
+        "summary": "取得各行政區場站與車輛統計",
+        "description": "彙總台北市各行政區（如大安區、信義區、中山區等）之場站數量、車位數、可借車輛與可還車位。",
+        "operationId": "get_districts_api_v1_districts_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DistrictSummary"
+                  },
+                  "type": "array",
+                  "title": "Response Get Districts Api V1 Districts Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "系統健康檢查"
+        ],
+        "summary": "Health Check",
+        "description": "健康檢查端點，回傳 API 與資料庫狀態",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DistrictSummary": {
+        "properties": {
+          "district": {
+            "type": "string",
+            "title": "District",
+            "description": "行政區名稱"
+          },
+          "station_count": {
+            "type": "integer",
+            "title": "Station Count",
+            "description": "站點總數"
+          },
+          "total_slots": {
+            "type": "integer",
+            "title": "Total Slots",
+            "description": "總車位數"
+          },
+          "total_available_bikes": {
+            "type": "integer",
+            "title": "Total Available Bikes",
+            "description": "目前可借總車數"
+          },
+          "total_return_spaces": {
+            "type": "integer",
+            "title": "Total Return Spaces",
+            "description": "目前可還總車位"
+          },
+          "active_station_count": {
+            "type": "integer",
+            "title": "Active Station Count",
+            "description": "正常營運場站數"
+          }
+        },
+        "type": "object",
+        "required": [
+          "district",
+          "station_count",
+          "total_slots",
+          "total_available_bikes",
+          "total_return_spaces",
+          "active_station_count"
+        ],
+        "title": "DistrictSummary"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "MessageResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "default": true
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "MessageResponse"
+      },
+      "NearbyStationResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "sno": {
+            "type": "string",
+            "title": "Sno"
+          },
+          "sna": {
+            "type": "string",
+            "title": "Sna"
+          },
+          "sarea": {
+            "type": "string",
+            "title": "Sarea"
+          },
+          "ar": {
+            "type": "string",
+            "title": "Ar"
+          },
+          "snaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snaen"
+          },
+          "sareaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sareaen"
+          },
+          "aren": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aren"
+          },
+          "act": {
+            "type": "string",
+            "title": "Act"
+          },
+          "total_slots": {
+            "type": "integer",
+            "title": "Total Slots"
+          },
+          "available_rent_bikes": {
+            "type": "integer",
+            "title": "Available Rent Bikes"
+          },
+          "available_return_bikes": {
+            "type": "integer",
+            "title": "Available Return Bikes"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "info_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Info Time"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          },
+          "available_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Rate"
+          },
+          "distance_meters": {
+            "type": "number",
+            "title": "Distance Meters",
+            "description": "距給定經緯度之直線距離 (公尺)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sno",
+          "sna",
+          "sarea",
+          "ar",
+          "act",
+          "total_slots",
+          "available_rent_bikes",
+          "available_return_bikes",
+          "latitude",
+          "longitude",
+          "distance_meters"
+        ],
+        "title": "NearbyStationResponse"
+      },
+      "OverviewStats": {
+        "properties": {
+          "total_stations": {
+            "type": "integer",
+            "title": "Total Stations",
+            "description": "總場站數"
+          },
+          "active_stations": {
+            "type": "integer",
+            "title": "Active Stations",
+            "description": "正常營運場站數"
+          },
+          "suspended_stations": {
+            "type": "integer",
+            "title": "Suspended Stations",
+            "description": "暫停營運場站數"
+          },
+          "total_capacity": {
+            "type": "integer",
+            "title": "Total Capacity",
+            "description": "全市總車位數"
+          },
+          "total_available_bikes": {
+            "type": "integer",
+            "title": "Total Available Bikes",
+            "description": "全市可借總車數"
+          },
+          "total_return_spaces": {
+            "type": "integer",
+            "title": "Total Return Spaces",
+            "description": "全市可還總空位數"
+          },
+          "districts_count": {
+            "type": "integer",
+            "title": "Districts Count",
+            "description": "涵蓋行政區總數"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_stations",
+          "active_stations",
+          "suspended_stations",
+          "total_capacity",
+          "total_available_bikes",
+          "total_return_spaces",
+          "districts_count"
+        ],
+        "title": "OverviewStats"
+      },
+      "StationCreate": {
+        "properties": {
+          "sna": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 2,
+            "title": "Sna",
+            "description": "場站中文名稱 (例: YouBike2.0_捷運科技大樓站)"
+          },
+          "sarea": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Sarea",
+            "description": "行政區 (例: 大安區)"
+          },
+          "ar": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 2,
+            "title": "Ar",
+            "description": "中文地址 (例: 復興南路二段235號前)"
+          },
+          "snaen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snaen",
+            "description": "場站英文名稱"
+          },
+          "sareaen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sareaen",
+            "description": "行政區英文名稱"
+          },
+          "aren": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aren",
+            "description": "英文地址"
+          },
+          "act": {
+            "type": "string",
+            "title": "Act",
+            "description": "營運狀態 ('1': 正常營運, '0': 暫停營運)",
+            "default": "1"
+          },
+          "total_slots": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Slots",
+            "description": "總車位數",
+            "default": 20
+          },
+          "available_rent_bikes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Available Rent Bikes",
+            "description": "目前可借車輛數",
+            "default": 10
+          },
+          "available_return_bikes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Available Return Bikes",
+            "description": "目前可還空位數",
+            "default": 10
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "description": "緯度 (Latitude)"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "description": "經度 (Longitude)"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes",
+            "description": "備註資訊",
+            "default": ""
+          },
+          "sno": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sno",
+            "description": "場站代號 (若未填寫系統將自動生成唯一代號)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sna",
+          "sarea",
+          "ar",
+          "latitude",
+          "longitude"
+        ],
+        "title": "StationCreate"
+      },
+      "StationPaginationResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "總筆數"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page",
+            "description": "目前頁數"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "每頁筆數"
+          },
+          "total_pages": {
+            "type": "integer",
+            "title": "Total Pages",
+            "description": "總頁數"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/StationResponse"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "本頁場站資料清單"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size",
+          "total_pages",
+          "items"
+        ],
+        "title": "StationPaginationResponse"
+      },
+      "StationPatch": {
+        "properties": {
+          "sna": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sna"
+          },
+          "sarea": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sarea"
+          },
+          "ar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256,
+                "minLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ar"
+          },
+          "snaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snaen"
+          },
+          "sareaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sareaen"
+          },
+          "aren": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aren"
+          },
+          "act": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Act"
+          },
+          "total_slots": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Slots"
+          },
+          "available_rent_bikes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Rent Bikes"
+          },
+          "available_return_bikes": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Return Bikes"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 90.0,
+                "minimum": -90.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 180.0,
+                "minimum": -180.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "title": "StationPatch",
+        "description": "PATCH 局部更新 (所有欄位皆可選)"
+      },
+      "StationResponse": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "sno": {
+            "type": "string",
+            "title": "Sno"
+          },
+          "sna": {
+            "type": "string",
+            "title": "Sna"
+          },
+          "sarea": {
+            "type": "string",
+            "title": "Sarea"
+          },
+          "ar": {
+            "type": "string",
+            "title": "Ar"
+          },
+          "snaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snaen"
+          },
+          "sareaen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sareaen"
+          },
+          "aren": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aren"
+          },
+          "act": {
+            "type": "string",
+            "title": "Act"
+          },
+          "total_slots": {
+            "type": "integer",
+            "title": "Total Slots"
+          },
+          "available_rent_bikes": {
+            "type": "integer",
+            "title": "Available Rent Bikes"
+          },
+          "available_return_bikes": {
+            "type": "integer",
+            "title": "Available Return Bikes"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          },
+          "info_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Info Time"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "status_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Text"
+          },
+          "available_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "sno",
+          "sna",
+          "sarea",
+          "ar",
+          "act",
+          "total_slots",
+          "available_rent_bikes",
+          "available_return_bikes",
+          "latitude",
+          "longitude"
+        ],
+        "title": "StationResponse"
+      },
+      "StationUpdate": {
+        "properties": {
+          "sna": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 2,
+            "title": "Sna",
+            "description": "場站中文名稱 (例: YouBike2.0_捷運科技大樓站)"
+          },
+          "sarea": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 2,
+            "title": "Sarea",
+            "description": "行政區 (例: 大安區)"
+          },
+          "ar": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 2,
+            "title": "Ar",
+            "description": "中文地址 (例: 復興南路二段235號前)"
+          },
+          "snaen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snaen",
+            "description": "場站英文名稱"
+          },
+          "sareaen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sareaen",
+            "description": "行政區英文名稱"
+          },
+          "aren": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 256
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aren",
+            "description": "英文地址"
+          },
+          "act": {
+            "type": "string",
+            "title": "Act",
+            "description": "營運狀態 ('1': 正常營運, '0': 暫停營運)",
+            "default": "1"
+          },
+          "total_slots": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Total Slots",
+            "description": "總車位數",
+            "default": 20
+          },
+          "available_rent_bikes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Available Rent Bikes",
+            "description": "目前可借車輛數",
+            "default": 10
+          },
+          "available_return_bikes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Available Return Bikes",
+            "description": "目前可還空位數",
+            "default": 10
+          },
+          "latitude": {
+            "type": "number",
+            "maximum": 90.0,
+            "minimum": -90.0,
+            "title": "Latitude",
+            "description": "緯度 (Latitude)"
+          },
+          "longitude": {
+            "type": "number",
+            "maximum": 180.0,
+            "minimum": -180.0,
+            "title": "Longitude",
+            "description": "經度 (Longitude)"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 512
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes",
+            "description": "備註資訊",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "sna",
+          "sarea",
+          "ar",
+          "latitude",
+          "longitude"
+        ],
+        "title": "StationUpdate",
+        "description": "PUT 完整替換更新"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "YouBike 場站管理 (Stations CRUD)",
+      "description": "提供場站資源之查詢、新增、完整更新、局部修改、刪除與經緯度周邊搜尋。"
+    },
+    {
+      "name": "行政區統計 (Districts)",
+      "description": "統計各行政區之場站數、車位與車輛供應數據。"
+    },
+    {
+      "name": "統計分析 (Statistics)",
+      "description": "全台北市 YouBike 營運指標即時總覽。"
+    }
+  ]
+}

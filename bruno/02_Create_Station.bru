@@ -1,0 +1,31 @@
+meta {
+  name: 02_Create_Station
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://127.0.0.1:8000/api/v1/stations
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sno": "bruno_test_01",
+    "sna": "YouBike2.0_國立臺北商業大學站",
+    "sarea": "中正區",
+    "ar": "台北市中正區濟南路一段321號",
+    "act": "1",
+    "total_slots": 30,
+    "available_rent_bikes": 15,
+    "available_return_bikes": 15,
+    "latitude": 25.0425,
+    "longitude": 121.5255,
+    "notes": "Bruno API Client 測試建立"
+  }
+}

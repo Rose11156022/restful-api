@@ -1,0 +1,216 @@
+{
+  "info": {
+    "_postman_id": "c1f7a29a-e18e-4a67-8e6d-9721731be7a1",
+    "name": "Taipei YouBike 2.0 RESTful API",
+    "description": "台北市 YouBike 2.0 Open Data RESTful API 完整測試集合，包含 Stations 資源之 CRUD、經緯度周邊查詢與統計分析端點。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000",
+      "type": "string"
+    },
+    {
+      "key": "stationId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "00. 系統健康檢查 (Health Check)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": ["{{baseUrl}}"],
+          "path": ["health"]
+        },
+        "description": "檢查 API 伺服器與資料庫連線狀況。"
+      }
+    },
+    {
+      "name": "01. 場站清單查詢 (List Stations - Read)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations?page=1&page_size=10&district=大安區&keyword=捷運",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations"],
+          "query": [
+            { "key": "page", "value": "1", "description": "頁碼" },
+            { "key": "page_size", "value": "10", "description": "每頁筆數" },
+            { "key": "district", "value": "大安區", "description": "行政區篩選" },
+            { "key": "keyword", "value": "捷運", "description": "關鍵字搜尋" },
+            { "key": "sort_by", "value": "id", "disabled": true },
+            { "key": "order", "value": "asc", "disabled": true }
+          ]
+        },
+        "description": "取得場站清單，支援分頁、行政區、關鍵字與可用車輛篩選。"
+      }
+    },
+    {
+      "name": "02. 單一場站詳細資訊 (Get Station - Read)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/{{stationId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "{{stationId}}"]
+        },
+        "description": "依照場站 ID 或 sno 查詢場站詳細內容與即時可用率。"
+      }
+    },
+    {
+      "name": "03. 新增場站資源 (Create Station - POST)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sno\": \"postman_demo_01\",\n  \"sna\": \"YouBike2.0_國立臺北商業大學站\",\n  \"sarea\": \"中正區\",\n  \"ar\": \"台北市中正區濟南路一段321號\",\n  \"snaen\": \"YouBike2.0_National Taipei University of Business\",\n  \"sareaen\": \"Zhongzheng Dist.\",\n  \"aren\": \"No.321, Sec. 1, Jinan Rd.\",\n  \"act\": \"1\",\n  \"total_slots\": 25,\n  \"available_rent_bikes\": 12,\n  \"available_return_bikes\": 13,\n  \"latitude\": 25.0425,\n  \"longitude\": 121.5255,\n  \"notes\": \"Postman 測試新增站點\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations"]
+        },
+        "description": "建立新的 YouBike 場站資源，回傳 HTTP 201 Created。"
+      }
+    },
+    {
+      "name": "04. 完整更新場站資訊 (Update Station - PUT)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"sna\": \"YouBike2.0_國立臺北商業大學(智慧更新站)\",\n  \"sarea\": \"中正區\",\n  \"ar\": \"台北市中正區濟南路一段321號大門前\",\n  \"snaen\": \"YouBike2.0_NTUB Smart Station\",\n  \"sareaen\": \"Zhongzheng Dist.\",\n  \"aren\": \"No.321, Sec. 1, Jinan Rd.\",\n  \"act\": \"1\",\n  \"total_slots\": 35,\n  \"available_rent_bikes\": 20,\n  \"available_return_bikes\": 15,\n  \"latitude\": 25.0426,\n  \"longitude\": 121.5256,\n  \"notes\": \"PUT 完整更新已成功\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/postman_demo_01",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "postman_demo_01"]
+        },
+        "description": "以 PUT 進行完整替換更新場站資料。"
+      }
+    },
+    {
+      "name": "05. 局部修改場站資訊 (Patch Station - PATCH)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"available_rent_bikes\": 30,\n  \"available_return_bikes\": 5,\n  \"notes\": \"車輛調度完成，可借數增加至 30\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/postman_demo_01",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "postman_demo_01"]
+        },
+        "description": "以 PATCH 進行局部欄位更新。"
+      }
+    },
+    {
+      "name": "06. 刪除場站資源 (Delete Station - DELETE)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/postman_demo_01",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "postman_demo_01"]
+        },
+        "description": "刪除指定的場站資源。"
+      }
+    },
+    {
+      "name": "07. 經緯度周邊場站查詢 (Nearby Geo Search)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/nearby?latitude=25.0478&longitude=121.5170&radius=800&limit=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "nearby"],
+          "query": [
+            { "key": "latitude", "value": "25.0478", "description": "台北車站緯度" },
+            { "key": "longitude", "value": "121.5170", "description": "台北車站經度" },
+            { "key": "radius", "value": "800", "description": "搜尋半徑 (公尺)" },
+            { "key": "limit", "value": "5", "description": "最多回傳筆數" }
+          ]
+        },
+        "description": "搜尋特定座標周圍之場站與直線公尺距離。"
+      }
+    },
+    {
+      "name": "08. 行政區統計分析 (Districts Summary)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/districts",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "districts"]
+        },
+        "description": "取得台北市各行政區場站數、車位與車輛總和。"
+      }
+    },
+    {
+      "name": "09. 全台北市營運總覽統計 (Overview Stats)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stats/overview",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stats", "overview"]
+        },
+        "description": "取得全台北市 YouBike 總營運統計。"
+      }
+    },
+    {
+      "name": "10. 重置資料庫至原始 Open Data (Reset Database)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Accept", "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/stations/reset-database",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "stations", "reset-database"]
+        },
+        "description": "還原 SQLite 資料庫至原始下載之 Open Data 狀態。"
+      }
+    }
+  ]
+}

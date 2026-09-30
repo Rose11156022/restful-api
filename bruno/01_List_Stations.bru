@@ -1,0 +1,17 @@
+meta {
+  name: 01_List_Stations
+  type: http
+  seq: 1
+}
+
+get {
+  url: http://127.0.0.1:8000/api/v1/stations?page=1&page_size=10&district=大安區
+  body: none
+  auth: none
+}
+
+params:query {
+  page: 1
+  page_size: 10
+  district: 大安區
+}
